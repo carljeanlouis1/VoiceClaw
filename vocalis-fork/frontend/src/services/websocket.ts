@@ -104,6 +104,21 @@ interface EventListener {
   callback: (data: any) => void;
 }
 
+// Get WebSocket URL from environment or use default
+// In production (Cloudflare Pages), set VITE_WS_URL to your backend
+// Example: VITE_WS_URL=ws://localhost:8000/ws (for local backend)
+// Example: VITE_WS_URL=wss://your-backend.example.com/ws (for remote backend)
+const getDefaultWsUrl = (): string => {
+  // Check for environment variable first
+  const envUrl = import.meta.env.VITE_WS_URL;
+  if (envUrl) {
+    return envUrl;
+  }
+  
+  // Default: connect to localhost (works when running backend locally)
+  return 'ws://localhost:8000/ws';
+};
+
 // Main WebSocket service class
 export class WebSocketService {
   private socket: WebSocket | null = null;
@@ -120,12 +135,13 @@ export class WebSocketService {
   private isInGreetingFlow: boolean = false;
 
   constructor(
-    url: string = 'ws://localhost:8000/ws', 
+    url: string = getDefaultWsUrl(), 
     autoReconnect: boolean = true,
     reconnectInterval: number = 3000,
     maxReconnectAttempts: number = 5
   ) {
     this.url = url;
+    console.log(`VoiceClaw WebSocket URL: ${this.url}`);
     this.autoReconnect = autoReconnect;
     this.reconnectInterval = reconnectInterval;
     this.reconnectAttempts = 0;

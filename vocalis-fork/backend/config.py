@@ -56,10 +56,15 @@ def get_llm_endpoint() -> str:
 # TTS Configuration
 # =============================================================================
 
-TTS_API_ENDPOINT = os.getenv("TTS_API_ENDPOINT", "http://localhost:5005/v1/audio/speech")
+# TTS endpoint (default: OpenAI API)
+TTS_API_ENDPOINT = os.getenv("TTS_API_ENDPOINT", "https://api.openai.com/v1/audio/speech")
+
+# TTS API key (for OpenAI or compatible service)
+TTS_API_KEY = os.getenv("TTS_API_KEY", os.getenv("OPENAI_API_KEY", ""))
+
 TTS_MODEL = os.getenv("TTS_MODEL", "tts-1")
-TTS_VOICE = os.getenv("TTS_VOICE", "tara")
-TTS_FORMAT = os.getenv("TTS_FORMAT", "wav")
+TTS_VOICE = os.getenv("TTS_VOICE", "onyx")  # OpenAI voices: alloy, echo, fable, onyx, nova, shimmer
+TTS_FORMAT = os.getenv("TTS_FORMAT", "mp3")
 
 # =============================================================================
 # Whisper STT Configuration
@@ -141,5 +146,22 @@ def get_clawdbot_headers() -> Dict[str, str]:
     
     if CLAWDBOT_SESSION_KEY:
         headers["x-clawdbot-session-key"] = CLAWDBOT_SESSION_KEY
+    
+    return headers
+
+
+def get_tts_headers() -> Dict[str, str]:
+    """
+    Get HTTP headers for TTS API requests.
+    
+    Returns:
+        Dict[str, str]: Headers dict with auth headers
+    """
+    headers = {
+        "Content-Type": "application/json",
+    }
+    
+    if TTS_API_KEY:
+        headers["Authorization"] = f"Bearer {TTS_API_KEY}"
     
     return headers

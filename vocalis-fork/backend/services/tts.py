@@ -1,7 +1,8 @@
 """
 Text-to-Speech Service
 
-Handles communication with the local TTS API endpoint.
+Handles communication with the TTS API endpoint.
+Supports OpenAI TTS API and compatible services.
 """
 
 import json
@@ -12,6 +13,8 @@ import time
 import base64
 import asyncio
 from typing import Dict, Any, List, Optional, BinaryIO, Generator, AsyncGenerator
+
+from ..config import get_tts_headers, TTS_API_KEY
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -87,10 +90,14 @@ class TTSClient:
             
             logger.info(f"Sending TTS request with {len(text)} characters of text")
             
+            # Get headers (includes API key if configured)
+            headers = get_tts_headers()
+            
             # Send request to TTS API
             response = requests.post(
                 self.api_endpoint,
                 json=payload,
+                headers=headers,
                 timeout=self.timeout
             )
             
@@ -142,10 +149,14 @@ class TTSClient:
             
             logger.info(f"Sending streaming TTS request with {len(text)} characters of text")
             
+            # Get headers (includes API key if configured)
+            headers = get_tts_headers()
+            
             # Send request to TTS API
             with requests.post(
                 self.api_endpoint,
                 json=payload,
+                headers=headers,
                 timeout=self.timeout,
                 stream=True
             ) as response:
