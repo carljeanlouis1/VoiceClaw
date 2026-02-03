@@ -1,20 +1,29 @@
 """
-Vision service for image processing using SmolVLM
+Vision service for image processing (Optional)
 
 Handles loading and initializing the vision model for image understanding.
+Vision is optional for VoiceClaw - core functionality is STT → LLM → TTS.
 """
 
 import logging
-from transformers import AutoProcessor, AutoModelForVision2Seq
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
+# Try to import transformers vision components
+VISION_AVAILABLE = False
+try:
+    from transformers import AutoProcessor, AutoModelForVision2Seq
+    VISION_AVAILABLE = True
+except ImportError:
+    logger.warning("Vision model components not available. Vision features disabled.")
+
+
 class VisionService:
     """
     Service for processing images with vision models.
-    Currently uses SmolVLM-256M-Instruct for lightweight image understanding.
+    Optional feature - can be disabled without affecting core voice functionality.
     """
     
     def __init__(self):
@@ -23,16 +32,20 @@ class VisionService:
         self.model = None
         self.initialized = False
         self.model_name = "HuggingFaceTB/SmolVLM-256M-Instruct"
-        self.default_prompt = "Describe this image in detail. Include information about objects, people, scenes, text, and any notable elements."
+        self.default_prompt = "Describe this image in detail."
+        self.device = None
     
     def initialize(self):
         """
         Initialize the model, downloading it if necessary.
-        This will be called on server startup.
         
         Returns:
             bool: Whether initialization was successful
         """
+        if not VISION_AVAILABLE:
+            logger.info("Vision service disabled (transformers vision components not available)")
+            return False
+            
         if self.initialized:
             logger.info("Vision model already initialized")
             return True
@@ -40,89 +53,100 @@ class VisionService:
         try:
             import torch
             
-            # Determine device (use CUDA if available)
+            # Determine device
             self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
             logger.info(f"Using device for vision model: {self.device}")
             
-            logger.info(f"Loading vision model {self.model_name} (this may take a while on first run)...")
+            logger.info(f"Loading vision model {self.model_name}...")
             
-            # These calls will trigger the download if the model isn't cached locally
             self.processor = AutoProcessor.from_pretrained(self.model_name)
-            self.model = AutoModelForVision2Seq.from_pretrained(self.model_name)
-            
-            # Move model to GPU if available
-            self.model = self.model.to(self.device)
+            self.model = AutoModelForVision2Seq.from_pretrained(
+                self.model_name,
+                torch_dtype=torch.float16 if self.device.type == "cuda" else torch.float32,
+            ).to(self.device)
             
             self.initialized = True
-            logger.info(f"Vision model loaded successfully on {self.device}")
+            logger.info("Vision model loaded successfully")
             return True
+            
         except Exception as e:
-            logger.error(f"Error loading vision model: {e}")
+            logger.error(f"Failed to initialize vision model: {e}")
+            self.initialized = False
             return False
     
-    def process_image(self, image_base64: str, prompt: str = None):
+    def is_ready(self) -> bool:
+        """Check if the vision service is ready."""
+        return self.initialized
+    
+    def process_image(self, image_base64: str, prompt: str = None) -> str:
         """
-        Process an image with SmolVLM and return a description.
+        Process an image and return a description.
         
         Args:
             image_base64: Base64-encoded image data
-            prompt: Prompt to guide image description (uses default if None)
+            prompt: Custom prompt for the vision model
             
         Returns:
-            str: Image description
+            str: Description of the image, or error message if vision unavailable
         """
-        if not self.is_ready():
-            raise RuntimeError("Vision model not initialized")
-            
+        if not self.initialized:
+            return "[Vision processing unavailable]"
+        
         try:
-            # Decode base64 image
             import base64
             from io import BytesIO
             from PIL import Image
             import torch
             
+            # Clean base64 string
+            if "," in image_base64:
+                image_base64 = image_base64.split(",")[1]
+            
+            # Decode image
+            image_data = base64.b64decode(image_base64)
+            image = Image.open(BytesIO(image_data)).convert("RGB")
+            
             # Use default prompt if none provided
-            if prompt is None:
+            if not prompt:
                 prompt = self.default_prompt
             
-            # Format the prompt to include the <image> token
-            formatted_prompt = f"User uploaded this image: <image>\n{prompt}"
+            # Process with model
+            messages = [
+                {
+                    "role": "user",
+                    "content": [
+                        {"type": "image"},
+                        {"type": "text", "text": prompt}
+                    ]
+                }
+            ]
             
-            # Convert base64 to image
-            image_data = base64.b64decode(image_base64)
-            image = Image.open(BytesIO(image_data)).convert('RGB')
+            input_text = self.processor.apply_chat_template(messages, add_generation_prompt=True)
+            inputs = self.processor(
+                text=input_text,
+                images=[image],
+                return_tensors="pt"
+            ).to(self.device)
             
-            # Prepare inputs for the model with the correct token format
-            inputs = self.processor(text=[formatted_prompt], images=[image], return_tensors="pt")
-            
-            # Move inputs to the same device as the model
-            inputs = {k: v.to(self.device) for k, v in inputs.items()}
-            
-            # Generate description
             with torch.no_grad():
-                output_ids = self.model.generate(
+                outputs = self.model.generate(
                     **inputs,
                     max_new_tokens=256,
                     do_sample=False
                 )
             
-            # Decode the output
-            description = self.processor.batch_decode(output_ids, skip_special_tokens=True)[0]
+            response = self.processor.batch_decode(outputs, skip_special_tokens=True)[0]
             
-            return description.strip()
+            # Extract assistant response
+            if "Assistant:" in response:
+                response = response.split("Assistant:")[-1].strip()
+            
+            return response
             
         except Exception as e:
-            logger.error(f"Error processing image with vision model: {e}")
-            return f"Error analyzing image: {str(e)}"
-    
-    def is_ready(self):
-        """
-        Check if the model is initialized and ready.
-        
-        Returns:
-            bool: Whether the model is ready for use
-        """
-        return self.initialized
+            logger.error(f"Error processing image: {e}")
+            return f"[Vision processing error: {str(e)}]"
 
-# Create singleton instance
+
+# Global singleton instance
 vision_service = VisionService()
