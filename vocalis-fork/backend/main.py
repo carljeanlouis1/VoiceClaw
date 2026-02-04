@@ -15,8 +15,7 @@ from contextlib import asynccontextmanager
 import config
 
 # Import services
-# WhisperTranscriber import moved to conditional block below (legacy mode)
-from services.transcription_deepgram import DeepgramTranscriber
+from services.transcription import WhisperTranscriber  # Using API-based transcription (Deepgram or other)
 from services.llm import LLMClient
 from services.tts import TTSClient
 from services.vision import vision_service
@@ -55,31 +54,16 @@ async def lifespan(app: FastAPI):
     
     global transcription_service, llm_service, tts_service
     
-    # Initialize transcription service
-    if cfg.get("use_deepgram", True):
-        logger.info(f"Initializing Deepgram Flux: {cfg['deepgram_model']}")
-        logger.info(f"  Sample rate: {cfg['deepgram_sample_rate']}Hz")
-        logger.info(f"  EOT threshold: {cfg['deepgram_eot_threshold']}")
-        
-        if not cfg.get("has_deepgram_key"):
-            logger.error("⚠️  DEEPGRAM_API_KEY not set! Transcription will fail.")
-            logger.error("   Sign up at https://console.deepgram.com/signup for $200 free credit")
-        
-        transcription_service = DeepgramTranscriber(
-            model=cfg["deepgram_model"],
-            encoding=cfg["deepgram_encoding"],
-            sample_rate=cfg["deepgram_sample_rate"],
-            eot_threshold=cfg["deepgram_eot_threshold"],
-            eager_eot_threshold=cfg.get("deepgram_eager_eot_threshold"),
-            eot_timeout_ms=cfg["deepgram_eot_timeout_ms"]
-        )
-    else:
-        logger.info(f"Loading Whisper model: {cfg['whisper_model']} (legacy mode)")
-        from services.transcription import WhisperTranscriber
-        transcription_service = WhisperTranscriber(
-            model_size=cfg["whisper_model"],
-            sample_rate=cfg["audio_sample_rate"]
-        )
+    # Initialize transcription service (Deepgram API)
+    logger.info("Initializing Deepgram API transcription")
+    
+    if not cfg.get("has_deepgram_key"):
+        logger.error("⚠️  DEEPGRAM_API_KEY not set! Transcription will fail.")
+        logger.error("   Sign up at https://console.deepgram.com/signup for $200 free credit")
+    
+    transcription_service = WhisperTranscriber(
+        sample_rate=cfg["audio_sample_rate"]
+    )
     
     # Initialize LLM service
     llm_service = LLMClient(
