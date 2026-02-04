@@ -10,7 +10,7 @@ import requests
 import logging
 from typing import Dict, Any, List, Optional
 
-from ..config import (
+from config import (
     USE_CLAWDBOT,
     get_llm_endpoint,
     get_clawdbot_headers,

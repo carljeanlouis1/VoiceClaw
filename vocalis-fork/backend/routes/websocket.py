@@ -15,10 +15,10 @@ from fastapi import WebSocket, WebSocketDisconnect, BackgroundTasks
 from pydantic import BaseModel
 from datetime import datetime
 
-from ..services.transcription import WhisperTranscriber
-from ..services.llm import LLMClient
-from ..services.tts import TTSClient
-from ..services.conversation_storage import ConversationStorage
+from services.transcription import WhisperTranscriber
+from services.llm import LLMClient
+from services.tts import TTSClient
+from services.conversation_storage import ConversationStorage
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)

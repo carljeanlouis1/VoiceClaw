@@ -14,7 +14,7 @@ import base64
 import asyncio
 from typing import Dict, Any, List, Optional, BinaryIO, Generator, AsyncGenerator
 
-from ..config import get_tts_headers, TTS_API_KEY
+from config import get_tts_headers, TTS_API_KEY
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
