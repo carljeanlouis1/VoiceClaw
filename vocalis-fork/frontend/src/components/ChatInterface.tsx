@@ -846,7 +846,7 @@ const ChatInterface: React.FC = () => {
       </div>
       
         {/* Audio input controls */}
-      <div className="absolute bottom-8 left-1/2 -translate-x-1/2 flex items-center gap-3">
+      <div className="absolute bottom-20 sm:bottom-8 left-1/2 pb-safe -translate-x-1/2 flex items-center gap-3">
         {/* Audio visualizer would go here */}
         
         {/* Vision button - Only shown when enabled */}
