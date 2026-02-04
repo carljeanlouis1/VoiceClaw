@@ -18,6 +18,7 @@ from datetime import datetime
 from services.transcription import WhisperTranscriber
 from services.llm import LLMClient
 from services.tts import TTSClient
+from services.streaming import stream_speech_with_buffering, is_sentence_complete
 from services.conversation_storage import ConversationStorage
 
 # Configure logging
@@ -315,20 +316,19 @@ class WebSocketManager:
                 self.current_vision_context = None
                 logger.info("Vision context processed and cleared")
             else:
-                # Normal non-vision processing
-                await self._send_status(websocket, "processing_llm", {})
-                llm_response = self.llm_client.get_response(transcript, self.system_prompt)
-            
-            # Send LLM response
-            await websocket.send_json({
-                "type": MessageType.LLM_RESPONSE,
-                "text": llm_response["text"],
-                "metadata": {k: v for k, v in llm_response.items() if k != "text"},
-                "timestamp": datetime.now().isoformat()
-            })
-            
-            # Generate and send TTS audio
-            await self._send_tts_response(websocket, llm_response["text"])
+                # Normal non-vision processing - USE STREAMING FOR LOWER LATENCY
+                await self._send_status(websocket, "processing_llm", {"streaming": True})
+                # Use streaming with sentence buffering for faster perceived response
+                await stream_speech_with_buffering(
+                    websocket=websocket,
+                    llm_client=self.llm_client,
+                    tts_client=self.tts_client,
+                    transcript=transcript,
+                    system_prompt=self.system_prompt,
+                    MessageType=MessageType
+                )
+                # Streaming handler sends LLM_RESPONSE, TTS_CHUNK, and TTS_END internally
+                return  # Exit early since streaming handles everything
             
         except Exception as e:
             logger.error(f"Error processing speech segment: {e}")
