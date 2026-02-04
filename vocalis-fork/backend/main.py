@@ -15,7 +15,7 @@ from contextlib import asynccontextmanager
 from . import config
 
 # Import services
-from .services.transcription import WhisperTranscriber  # Legacy
+# WhisperTranscriber import moved to conditional block below (legacy mode)
 from .services.transcription_deepgram import DeepgramTranscriber
 from .services.llm import LLMClient
 from .services.tts import TTSClient
@@ -75,6 +75,7 @@ async def lifespan(app: FastAPI):
         )
     else:
         logger.info(f"Loading Whisper model: {cfg['whisper_model']} (legacy mode)")
+        from .services.transcription import WhisperTranscriber
         transcription_service = WhisperTranscriber(
             model_size=cfg["whisper_model"],
             sample_rate=cfg["audio_sample_rate"]
