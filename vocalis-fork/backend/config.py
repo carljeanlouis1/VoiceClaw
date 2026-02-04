@@ -49,6 +49,9 @@ LLM_API_ENDPOINT = os.getenv("LLM_API_ENDPOINT", "http://127.0.0.1:1234/v1/chat/
 # API key for direct LLM access (OpenAI, Anthropic, etc.)
 LLM_API_KEY = os.getenv("LLM_API_KEY", "")
 
+# Model to use for LLM (default: Sonnet 4.5 for Clawdbot)
+LLM_MODEL = os.getenv("LLM_MODEL", "anthropic/claude-sonnet-4-5")
+
 # Computed: actual endpoint to use
 def get_llm_endpoint() -> str:
     """Get the LLM endpoint based on configuration."""
@@ -65,16 +68,32 @@ TTS_API_ENDPOINT = os.getenv("TTS_API_ENDPOINT", "https://api.openai.com/v1/audi
 
 # TTS API key (for OpenAI or compatible service)
 TTS_API_KEY = os.getenv("TTS_API_KEY", os.getenv("OPENAI_API_KEY", ""))
+OPENAI_API_KEY = os.getenv("OPENAI_API_KEY", "")  # Alias for compatibility
 
 TTS_MODEL = os.getenv("TTS_MODEL", "tts-1")
 TTS_VOICE = os.getenv("TTS_VOICE", "onyx")  # OpenAI voices: alloy, echo, fable, onyx, nova, shimmer
 TTS_FORMAT = os.getenv("TTS_FORMAT", "mp3")
 
 # =============================================================================
-# Whisper STT Configuration
+# STT Configuration (Deepgram Flux)
 # =============================================================================
 
-WHISPER_MODEL = os.getenv("WHISPER_MODEL", "tiny.en")
+# Deepgram API Key
+DEEPGRAM_API_KEY = os.getenv("DEEPGRAM_API_KEY", "")
+
+# Deepgram Flux Model Configuration
+DEEPGRAM_MODEL = os.getenv("DEEPGRAM_MODEL", "flux-general-en")
+DEEPGRAM_ENCODING = os.getenv("DEEPGRAM_ENCODING", "linear16")
+DEEPGRAM_SAMPLE_RATE = int(os.getenv("DEEPGRAM_SAMPLE_RATE", "16000"))
+
+# Flux End-of-Turn Detection Parameters
+DEEPGRAM_EOT_THRESHOLD = float(os.getenv("DEEPGRAM_EOT_THRESHOLD", "0.7"))
+DEEPGRAM_EAGER_EOT_THRESHOLD = float(os.getenv("DEEPGRAM_EAGER_EOT_THRESHOLD", "0")) if os.getenv("DEEPGRAM_EAGER_EOT_THRESHOLD") else None
+DEEPGRAM_EOT_TIMEOUT_MS = int(os.getenv("DEEPGRAM_EOT_TIMEOUT_MS", "5000"))
+
+# Legacy Whisper support (for fallback)
+WHISPER_MODEL = os.getenv("WHISPER_MODEL", "base")
+USE_DEEPGRAM = os.getenv("USE_DEEPGRAM", "true").lower() in ("true", "1", "yes")
 
 # =============================================================================
 # WebSocket Server Configuration
@@ -120,7 +139,15 @@ def get_config() -> Dict[str, Any]:
         "tts_format": TTS_FORMAT,
         
         # STT settings
-        "whisper_model": WHISPER_MODEL,
+        "use_deepgram": USE_DEEPGRAM,
+        "deepgram_model": DEEPGRAM_MODEL,
+        "deepgram_encoding": DEEPGRAM_ENCODING,
+        "deepgram_sample_rate": DEEPGRAM_SAMPLE_RATE,
+        "deepgram_eot_threshold": DEEPGRAM_EOT_THRESHOLD,
+        "deepgram_eager_eot_threshold": DEEPGRAM_EAGER_EOT_THRESHOLD,
+        "deepgram_eot_timeout_ms": DEEPGRAM_EOT_TIMEOUT_MS,
+        "has_deepgram_key": bool(DEEPGRAM_API_KEY),
+        "whisper_model": WHISPER_MODEL,  # Legacy
         
         # Server settings
         "websocket_host": WEBSOCKET_HOST,

@@ -15,7 +15,8 @@ from contextlib import asynccontextmanager
 from . import config
 
 # Import services
-from .services.transcription import WhisperTranscriber
+from .services.transcription import WhisperTranscriber  # Legacy
+from .services.transcription_deepgram import DeepgramTranscriber
 from .services.llm import LLMClient
 from .services.tts import TTSClient
 from .services.vision import vision_service
@@ -55,15 +56,34 @@ async def lifespan(app: FastAPI):
     global transcription_service, llm_service, tts_service
     
     # Initialize transcription service
-    logger.info(f"Loading Whisper model: {cfg['whisper_model']}")
-    transcription_service = WhisperTranscriber(
-        model_size=cfg["whisper_model"],
-        sample_rate=cfg["audio_sample_rate"]
-    )
+    if cfg.get("use_deepgram", True):
+        logger.info(f"Initializing Deepgram Flux: {cfg['deepgram_model']}")
+        logger.info(f"  Sample rate: {cfg['deepgram_sample_rate']}Hz")
+        logger.info(f"  EOT threshold: {cfg['deepgram_eot_threshold']}")
+        
+        if not cfg.get("has_deepgram_key"):
+            logger.error("⚠️  DEEPGRAM_API_KEY not set! Transcription will fail.")
+            logger.error("   Sign up at https://console.deepgram.com/signup for $200 free credit")
+        
+        transcription_service = DeepgramTranscriber(
+            model=cfg["deepgram_model"],
+            encoding=cfg["deepgram_encoding"],
+            sample_rate=cfg["deepgram_sample_rate"],
+            eot_threshold=cfg["deepgram_eot_threshold"],
+            eager_eot_threshold=cfg.get("deepgram_eager_eot_threshold"),
+            eot_timeout_ms=cfg["deepgram_eot_timeout_ms"]
+        )
+    else:
+        logger.info(f"Loading Whisper model: {cfg['whisper_model']} (legacy mode)")
+        transcription_service = WhisperTranscriber(
+            model_size=cfg["whisper_model"],
+            sample_rate=cfg["audio_sample_rate"]
+        )
     
     # Initialize LLM service
     llm_service = LLMClient(
-        api_endpoint=cfg["llm_api_endpoint"]
+        api_endpoint=cfg["llm_api_endpoint"],
+        model=config.LLM_MODEL
     )
     
     # Log Clawdbot connection status
@@ -165,7 +185,9 @@ async def health_check():
             "has_session_key": bool(cfg["clawdbot_session_key"])
         },
         "config": {
-            "whisper_model": config.WHISPER_MODEL,
+            "stt_provider": "deepgram_flux" if cfg["use_deepgram"] else "whisper",
+            "stt_model": cfg.get("deepgram_model") if cfg["use_deepgram"] else cfg["whisper_model"],
+            "has_deepgram_key": cfg.get("has_deepgram_key", False),
             "tts_voice": config.TTS_VOICE,
             "websocket_port": config.WEBSOCKET_PORT
         }
