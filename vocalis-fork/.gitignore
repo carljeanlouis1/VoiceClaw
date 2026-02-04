@@ -56,3 +56,4 @@ npm-debug.log*
 # Temp files
 *.tmp
 *.temp
+.env
