@@ -24,7 +24,13 @@ load_dotenv(_env_path)
 
 # Gateway endpoint (default: local Clawdbot gateway)
 # Accept both CLAWDBOT_* and CLAWD_* for backward compatibility
-CLAWDBOT_GATEWAY_URL = os.getenv("CLAWDBOT_GATEWAY_URL") or os.getenv("CLAWD_GATEWAY_URL") or "http://127.0.0.1:18789"
+# Check both env vars and log what we find
+_clawdbot_url = os.getenv("CLAWDBOT_GATEWAY_URL")
+_clawd_url = os.getenv("CLAWD_GATEWAY_URL")
+print(f"🔍 DEBUG: CLAWDBOT_GATEWAY_URL={_clawdbot_url}")
+print(f"🔍 DEBUG: CLAWD_GATEWAY_URL={_clawd_url}")
+CLAWDBOT_GATEWAY_URL = _clawd_url or _clawdbot_url or "http://127.0.0.1:18789"
+print(f"🔍 DEBUG: Using CLAWDBOT_GATEWAY_URL={CLAWDBOT_GATEWAY_URL}")
 
 # Gateway auth token (required for authenticated gateways)
 CLAWDBOT_GATEWAY_TOKEN = os.getenv("CLAWDBOT_GATEWAY_TOKEN") or os.getenv("CLAWD_API_KEY") or ""
