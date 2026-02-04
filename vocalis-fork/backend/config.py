@@ -23,18 +23,19 @@ load_dotenv(_env_path)
 # =============================================================================
 
 # Gateway endpoint (default: local Clawdbot gateway)
-CLAWDBOT_GATEWAY_URL = os.getenv("CLAWDBOT_GATEWAY_URL", "http://127.0.0.1:18789")
+# Accept both CLAWDBOT_* and CLAWD_* for backward compatibility
+CLAWDBOT_GATEWAY_URL = os.getenv("CLAWDBOT_GATEWAY_URL") or os.getenv("CLAWD_GATEWAY_URL") or "http://127.0.0.1:18789"
 
 # Gateway auth token (required for authenticated gateways)
-CLAWDBOT_GATEWAY_TOKEN = os.getenv("CLAWDBOT_GATEWAY_TOKEN", "")
+CLAWDBOT_GATEWAY_TOKEN = os.getenv("CLAWDBOT_GATEWAY_TOKEN") or os.getenv("CLAWD_API_KEY") or ""
 
 # Agent ID to route requests to (default: main)
-CLAWDBOT_AGENT_ID = os.getenv("CLAWDBOT_AGENT_ID", "main")
+CLAWDBOT_AGENT_ID = os.getenv("CLAWDBOT_AGENT_ID") or os.getenv("CLAWD_AGENT_ID") or "main"
 
 # Session key for continuity with other channels (optional)
 # If set, voice conversations share context with Telegram/WhatsApp
 # If empty, each voice session is independent
-CLAWDBOT_SESSION_KEY = os.getenv("CLAWDBOT_SESSION_KEY", "")
+CLAWDBOT_SESSION_KEY = os.getenv("CLAWDBOT_SESSION_KEY") or os.getenv("CLAWD_SESSION_KEY") or ""
 
 # Whether to use Clawdbot gateway (vs direct LLM API)
 USE_CLAWDBOT = os.getenv("USE_CLAWDBOT", "true").lower() in ("true", "1", "yes")
