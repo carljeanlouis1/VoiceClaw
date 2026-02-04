@@ -1,16 +1,16 @@
 """
 Speech-to-Text Transcription Service
 
-Uses Faster Whisper to transcribe speech audio.
+Uses Deepgram API for transcription.
 """
 
 import numpy as np
 import logging
-import io  # For BytesIO
+import io
+import os
+import httpx
 from typing import Dict, Any, List, Optional, Tuple
-from faster_whisper import WhisperModel
 import time
-import torch  # For CUDA availability check
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -18,9 +18,9 @@ logger = logging.getLogger(__name__)
 
 class WhisperTranscriber:
     """
-    Speech-to-Text service using Faster Whisper.
+    Speech-to-Text service using Deepgram API.
     
-    This class handles transcription of speech audio segments.
+    Kept the class name for backward compatibility.
     """
     
     def __init__(
@@ -34,111 +34,92 @@ class WhisperTranscriber:
         """
         Initialize the transcription service.
         
-        Args:
-            model_size: Whisper model size (tiny.en, base.en, small.en, medium.en, large)
-            device: Device to run model on ('cpu' or 'cuda'), if None will auto-detect
-            compute_type: Model computation type (int8, int16, float16, float32), if None will select based on device
-            beam_size: Beam size for decoding
-            sample_rate: Audio sample rate in Hz
+        Args are kept for backward compatibility but not used.
+        Deepgram API handles model selection automatically.
         """
-        self.model_size = model_size
-        
-        # Auto-detect device if not specified
-        if device is None:
-            self.device = "cuda" if torch.cuda.is_available() else "cpu"
-        else:
-            self.device = device
-            
-        # Select appropriate compute type based on device if not specified
-        if compute_type is None:
-            self.compute_type = "float16" if self.device == "cuda" else "int8"
-        else:
-            self.compute_type = compute_type
-            
-        self.beam_size = beam_size
         self.sample_rate = sample_rate
+        self.api_key = os.getenv("DEEPGRAM_API_KEY")
         
-        # Initialize model
-        self._initialize_model()
+        if not self.api_key:
+            raise ValueError("DEEPGRAM_API_KEY environment variable is required")
         
         # State tracking
         self.is_processing = False
         
-        logger.info(f"Initialized Whisper Transcriber with model={model_size}, "
-                   f"device={self.device}, compute_type={self.compute_type}")
-    
-    def _initialize_model(self):
-        """Initialize Whisper model."""
-        try:
-            # Load the model
-            self.model = WhisperModel(
-                self.model_size,  # Pass as positional argument, not keyword
-                device=self.device,
-                compute_type=self.compute_type
-            )
-            logger.info(f"Successfully loaded Whisper model: {self.model_size}")
-        except Exception as e:
-            logger.error(f"Failed to load Whisper model: {e}")
-            raise
+        logger.info("Initialized Deepgram Transcriber")
     
     def transcribe(self, audio: np.ndarray) -> Tuple[str, Dict[str, Any]]:
         """
-        Transcribe audio data to text.
+        Transcribe audio data to text using Deepgram API.
         
         Args:
-            audio: Audio data as numpy array
+            audio: Audio data as numpy array or WAV bytes
             
         Returns:
             Tuple[str, Dict[str, Any]]: 
                 - Transcribed text
-                - Dictionary with additional information (confidence, language, etc.)
+                - Dictionary with additional information
         """
         start_time = time.time()
         self.is_processing = True
         
         try:
-            # Handle WAV data (if audio is in uint8 format, it contains WAV headers)
-            if audio.dtype == np.uint8:
-                # First check the RIFF header to confirm this is WAV data
-                header = bytes(audio[:44])
-                if header[:4] == b'RIFF' and header[8:12] == b'WAVE':
-                    # Create a file-like object that Whisper can read from
-                    audio_file = io.BytesIO(bytes(audio))
-                    # The transcribe method expects a file-like object with read method
-                    audio = audio_file
+            # Convert audio to bytes if it's a numpy array
+            if isinstance(audio, np.ndarray):
+                if audio.dtype == np.uint8:
+                    # Already WAV bytes
+                    audio_bytes = bytes(audio)
                 else:
-                    # Not a proper WAV header
-                    logger.warning("Received audio data with incorrect WAV header")
-                    # Attempt to process as raw data
-                    audio = audio.astype(np.float32) / np.max(np.abs(audio)) if np.max(np.abs(audio)) > 0 else audio
+                    # Convert float32 to int16 WAV
+                    audio = np.clip(audio * 32767, -32768, 32767).astype(np.int16)
+                    
+                    # Create WAV file in memory
+                    import wave
+                    wav_buffer = io.BytesIO()
+                    with wave.open(wav_buffer, 'wb') as wav_file:
+                        wav_file.setnchannels(1)
+                        wav_file.setsampwidth(2)  # 16-bit
+                        wav_file.setframerate(self.sample_rate)
+                        wav_file.writeframes(audio.tobytes())
+                    
+                    audio_bytes = wav_buffer.getvalue()
             else:
-                # Normalize audio if it's raw float data
-                audio = audio.astype(np.float32) / np.max(np.abs(audio)) if np.max(np.abs(audio)) > 0 else audio
+                audio_bytes = audio
             
-            # Transcribe
-            segments, info = self.model.transcribe(
-                audio, 
-                beam_size=self.beam_size,
-                language="en",  # Force English language
-                vad_filter=False  # Disable VAD filter since we handle it in the frontend
-            )
-            
-            # Collect all segment texts
-            text_segments = [segment.text for segment in segments]
-            full_text = " ".join(text_segments).strip()
-            
-            # Calculate processing time
-            processing_time = time.time() - start_time
-            logger.info(f"Transcription completed in {processing_time:.2f}s: {full_text[:50]}...")
-            
-            metadata = {
-                "confidence": getattr(info, "avg_logprob", 0),
-                "language": getattr(info, "language", "en"),
-                "processing_time": processing_time,
-                "segments_count": len(text_segments)
+            # Call Deepgram API
+            url = "https://api.deepgram.com/v1/listen"
+            params = {
+                "model": "nova-2",
+                "language": "en",
+                "punctuate": True,
+                "smart_format": True
             }
             
-            return full_text, metadata
+            headers = {
+                "Authorization": f"Token {self.api_key}",
+                "Content-Type": "audio/wav"
+            }
+            
+            with httpx.Client(timeout=30.0) as client:
+                response = client.post(url, params=params, headers=headers, content=audio_bytes)
+                response.raise_for_status()
+                result = response.json()
+            
+            # Extract transcription
+            transcript = result.get("results", {}).get("channels", [{}])[0].get("alternatives", [{}])[0].get("transcript", "")
+            confidence = result.get("results", {}).get("channels", [{}])[0].get("alternatives", [{}])[0].get("confidence", 0)
+            
+            processing_time = time.time() - start_time
+            logger.info(f"Transcription completed in {processing_time:.2f}s: {transcript[:50]}...")
+            
+            metadata = {
+                "confidence": confidence,
+                "language": "en",
+                "processing_time": processing_time,
+                "model": "deepgram-nova-2"
+            }
+            
+            return transcript, metadata
             
         except Exception as e:
             logger.error(f"Transcription error: {e}")
@@ -150,29 +131,25 @@ class WhisperTranscriber:
         """
         Stream transcription results from an audio generator.
         
-        Args:
-            audio_generator: Generator yielding audio chunks
-            
-        Yields:
-            Partial transcription results as they become available
+        Note: Deepgram has WebSocket streaming but for simplicity
+        this batches the audio and transcribes it.
         """
         self.is_processing = True
         
         try:
-            # Process the streaming transcription
-            segments = self.model.transcribe_with_vad(
-                audio_generator,
-                language="en"
-            )
+            # Collect audio chunks
+            audio_chunks = []
+            for chunk in audio_generator:
+                audio_chunks.append(chunk)
             
-            # Yield each segment as it's transcribed
-            for segment in segments:
-                yield {
-                    "text": segment.text,
-                    "start": segment.start,
-                    "end": segment.end,
-                    "confidence": segment.avg_logprob
-                }
+            # Combine and transcribe
+            full_audio = np.concatenate(audio_chunks)
+            text, metadata = self.transcribe(full_audio)
+            
+            yield {
+                "text": text,
+                "confidence": metadata.get("confidence", 0)
+            }
                 
         except Exception as e:
             logger.error(f"Streaming transcription error: {e}")
@@ -188,10 +165,7 @@ class WhisperTranscriber:
             Dict containing the current configuration
         """
         return {
-            "model_size": self.model_size,
-            "device": self.device,
-            "compute_type": self.compute_type,
-            "beam_size": self.beam_size,
+            "model": "deepgram-nova-2",
             "sample_rate": self.sample_rate,
             "is_processing": self.is_processing
         }
