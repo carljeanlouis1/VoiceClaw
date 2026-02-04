@@ -1,5 +1,7 @@
 # Fix: NO_REPLY Vocalization Bug
 
+**Status:** ✅ **FIXED** (Commit f70ad66)
+
 **Issue:** When Atlas sends "NO_REPLY" to indicate silence, VoiceClaw vocalizes it as "no response from Clawdbot" instead of staying silent.
 
 **Root Cause:** The WebSocket handler doesn't filter "NO_REPLY" before sending to TTS.

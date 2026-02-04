@@ -231,6 +231,13 @@ const ChatInterface: React.FC = () => {
     const newMuteState = audioService.toggleMicrophoneMute();
     setIsMuted(newMuteState);
     console.log(`Microphone ${newMuteState ? 'muted' : 'unmuted'}`);
+    
+    // Clear any follow-up timers when muting
+    if (newMuteState && followUpTimer) {
+      console.log('Clearing follow-up timer due to mute');
+      clearTimeout(followUpTimer);
+      setFollowUpTimer(null);
+    }
   };
   
   // Listen for vision settings and updates
@@ -554,7 +561,8 @@ const ChatInterface: React.FC = () => {
     
     // Only start a timer when assistant becomes idle after speaking AND is not processing
     // AND when follow-ups are allowed (not immediately after ending a call)
-    if (assistantState === 'idle' && previousAssistantState === 'speaking' && !preventFollowUp) {
+    // AND when microphone is not muted
+    if (assistantState === 'idle' && previousAssistantState === 'speaking' && !preventFollowUp && !isMuted) {
       console.log('Assistant became idle after speaking - preparing follow-up timer');
       
       // Clear any existing timer
@@ -595,13 +603,15 @@ const ChatInterface: React.FC = () => {
           // 3. We must be connected to the server
           // 4. Audio must be inactive (not recording or playing)
           // 5. Follow-ups must not be prevented by recent call end
+          // 6. Microphone must not be muted
           if (
             assistantState === 'idle' && 
             assistantState !== 'processing' &&  // Double-check processing state
             !potentialSpeechActivity &&  // No audio activity (even low-level background noise)
             isConnected && 
             audioState === AudioState.INACTIVE &&
-            !preventFollowUp  // Make sure follow-ups are allowed
+            !preventFollowUp &&  // Make sure follow-ups are allowed
+            !isMuted  // Don't send follow-ups when user is muted
           ) {
             console.log(`No speech detected during listening window, sending follow-up (tier ${followUpTier + 1})`);
             console.log(`Final audio state check: ${audioState}`);
