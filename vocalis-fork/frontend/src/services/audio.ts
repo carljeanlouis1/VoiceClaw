@@ -77,7 +77,7 @@ export class AudioService {
   
   // Voice detection parameters
   private isVoiceDetected: boolean = false;
-  private voiceThreshold: number = 0.01; // Adjust based on testing
+  private voiceThreshold: number = 0.025; // Adjusted to reduce false positives from background noise
   private silenceTimeout: number = 1000; // ms to keep recording after voice drops below threshold
   private lastVoiceTime: number = 0;
   private minRecordingLength: number = 1000; // Minimum ms of audio to send

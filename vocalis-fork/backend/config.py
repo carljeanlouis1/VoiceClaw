@@ -8,11 +8,15 @@ Extended from Vocalis to support Clawdbot/OpenClaw gateway integration.
 """
 
 import os
+from pathlib import Path
 from dotenv import load_dotenv
 from typing import Dict, Any, Optional
 
 # Load environment variables from .env file
-load_dotenv()
+# Explicitly look for .env in the project root (parent of backend/)
+_project_root = Path(__file__).parent.parent
+_env_path = _project_root / ".env"
+load_dotenv(_env_path)
 
 # =============================================================================
 # Clawdbot/OpenClaw Gateway Configuration
