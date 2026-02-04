@@ -47,6 +47,23 @@ async def stream_speech_with_buffering(websocket, llm_client, tts_client, transc
         async for token in llm_client.stream_response(transcript, system_prompt):
             buffer += token
             full_response += token
+            
+            # Check if NO_REPLY is detected in the response so far
+            if "NO_REPLY" in full_response.upper().replace(" ", ""):
+                logger.info("Detected NO_REPLY in streaming response, aborting TTS")
+                # Send TTS_END without any audio
+                await websocket.send_json({
+                    "type": MessageType.TTS_END,
+                    "timestamp": datetime.now().isoformat()
+                })
+                # Send the LLM response (for logging, won't be vocalized)
+                await websocket.send_json({
+                    "type": MessageType.LLM_RESPONSE,
+                    "text": full_response,
+                    "metadata": {"no_reply": True},
+                    "timestamp": datetime.now().isoformat()
+                })
+                return full_response
 
             # Check if we have a complete sentence
             if is_sentence_complete(buffer) and len(buffer.strip()) > 10:
