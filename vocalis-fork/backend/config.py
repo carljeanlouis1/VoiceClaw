@@ -24,7 +24,7 @@ load_dotenv(_env_path)
 
 # Gateway endpoint (default: local Clawdbot gateway)
 # TEMPORARY HARDCODE TO DEBUG ENV VAR ISSUE
-CLAWDBOT_GATEWAY_URL = "https://clawd.bot"
+CLAWDBOT_GATEWAY_URL = "https://portal-residents-congratulations-beats.trycloudflare.com"
 print(f"🔍 HARDCODED: Using CLAWDBOT_GATEWAY_URL={CLAWDBOT_GATEWAY_URL}")
 
 # Gateway auth token (required for authenticated gateways)
