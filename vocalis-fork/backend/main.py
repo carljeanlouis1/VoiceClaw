@@ -12,17 +12,17 @@ from fastapi.middleware.cors import CORSMiddleware
 from contextlib import asynccontextmanager
 
 # Import configuration
-from . import config
+import config
 
 # Import services
 # WhisperTranscriber import moved to conditional block below (legacy mode)
-from .services.transcription_deepgram import DeepgramTranscriber
-from .services.llm import LLMClient
-from .services.tts import TTSClient
-from .services.vision import vision_service
+from services.transcription_deepgram import DeepgramTranscriber
+from services.llm import LLMClient
+from services.tts import TTSClient
+from services.vision import vision_service
 
 # Import routes
-from .routes.websocket import websocket_endpoint
+from routes.websocket import websocket_endpoint
 
 # Configure logging
 logging.basicConfig(
@@ -75,7 +75,7 @@ async def lifespan(app: FastAPI):
         )
     else:
         logger.info(f"Loading Whisper model: {cfg['whisper_model']} (legacy mode)")
-        from .services.transcription import WhisperTranscriber
+        from services.transcription import WhisperTranscriber
         transcription_service = WhisperTranscriber(
             model_size=cfg["whisper_model"],
             sample_rate=cfg["audio_sample_rate"]
