@@ -41,7 +41,7 @@ class WhisperTranscriber:
         self.api_key = os.getenv("DEEPGRAM_API_KEY")
         
         if not self.api_key:
-            raise ValueError("DEEPGRAM_API_KEY environment variable is required")
+            logger.warning("DEEPGRAM_API_KEY not set - transcription will fail at runtime")
         
         # State tracking
         self.is_processing = False
