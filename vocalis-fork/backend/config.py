@@ -29,7 +29,8 @@ print(f"🔍 HARDCODED: Using CLAWDBOT_GATEWAY_URL={CLAWDBOT_GATEWAY_URL}")
 
 # Gateway auth token (required for authenticated gateways)
 # Read from env, with hardcoded fallback for Railway deploy
-CLAWDBOT_GATEWAY_TOKEN = os.getenv("CLAWDBOT_GATEWAY_TOKEN") or os.getenv("CLAWD_API_KEY") or "atlas-gw-9f3x7k2m"
+# TEMPORARY: Hardcoded token (Railway env var has stale value, API token expired so cant update)
+CLAWDBOT_GATEWAY_TOKEN = "atlas-gw-9f3x7k2m"
 
 # Agent ID to route requests to (default: main)
 CLAWDBOT_AGENT_ID = os.getenv("CLAWDBOT_AGENT_ID") or os.getenv("CLAWD_AGENT_ID") or "main"
